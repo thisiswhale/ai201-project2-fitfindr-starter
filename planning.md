@@ -93,7 +93,21 @@ If `outfit` is empty or whitespace-only, the tool returns a descriptive error me
 ## State Management
 
 **How does information from one tool get passed to the next?**
-<!-- Describe how your agent stores and accesses state within a session. What data is tracked? How is it passed between tool calls? -->
+
+All state lives in a single session dict created by `_new_session(query, wardrobe)` at the start of `run_agent()`. No global variables; no re-prompting the user; no re-fetching data between steps.
+
+| Field | Type | Set in step | Read in step |
+|---|---|---|---|
+| `query` | str | 1 (init) | reference only |
+| `parsed` | dict (`description`, `size`, `max_price`) | 2 (regex parse) | 3 (`search_listings` call) |
+| `search_results` | list[dict] | 3 (`search_listings` return) | 4 (item selection) |
+| `selected_item` | dict | 4 (`results[0]`) | 5 and 6 (both LLM tools) |
+| `wardrobe` | dict | 1 (passed in) | 5 (`suggest_outfit`) |
+| `outfit_suggestion` | str | 5 (`suggest_outfit` return) | 6 (`create_fit_card`) |
+| `fit_card` | str | 6 (`create_fit_card` return) | returned to caller |
+| `error` | str or None | 3 (on empty results) | caller checks first |
+
+The same `selected_item` dict object is passed directly into `suggest_outfit` and `create_fit_card` — verified in testing by spy-wrapping both tools and confirming the `is` identity check passed. The `outfit_suggestion` string written at Step 5 is the exact string received by `create_fit_card` at Step 6, confirmed by equality check.
 
 ---
 
