@@ -18,6 +18,8 @@ Usage (once implemented):
     print(result["error"])   # None on success
 """
 
+import re
+
 from tools import search_listings, suggest_outfit, create_fit_card
 
 
@@ -92,9 +94,58 @@ def run_agent(query: str, wardrobe: dict) -> dict:
     Before writing code, complete the Planning Loop and State Management sections
     of planning.md — your implementation should match what you described there.
     """
-    # TODO: implement the planning loop
+    # Step 1: initialize session
     session = _new_session(query, wardrobe)
-    session["error"] = "Planning loop not yet implemented."
+
+    # Step 2: parse query → description, size, max_price
+    price_match = re.search(r'(?:under|max|<)\s*\$?(\d+(?:\.\d+)?)', query, re.IGNORECASE)
+    size_match  = re.search(r'\bsize\s+([A-Z0-9/]+)\b', query, re.IGNORECASE)
+
+    max_price = float(price_match.group(1)) if price_match else None
+    size      = size_match.group(1).upper() if size_match else None
+
+    desc = query
+    if price_match:
+        desc = desc[:price_match.start()] + desc[price_match.end():]
+    if size_match:
+        desc = desc[:size_match.start()] + desc[size_match.end():]
+    desc = re.sub(r"(?i)^(i'?m\s+)?(looking\s+for\s+a?\s*)", "", desc.strip())
+    desc = re.sub(r'\s+', ' ', desc).strip(' ,.')
+
+    session["parsed"] = {"description": desc, "size": size, "max_price": max_price}
+
+    # Step 3: search listings — early return if no results
+    session["search_results"] = search_listings(
+        description=session["parsed"]["description"],
+        size=session["parsed"]["size"],
+        max_price=session["parsed"]["max_price"],
+    )
+
+    if not session["search_results"]:
+        size_part  = f" in size {size}" if size else ""
+        price_part = f" under ${max_price:.0f}" if max_price else ""
+        session["error"] = (
+            f"No listings found for '{desc}'{size_part}{price_part}. "
+            "Try a broader description, a different size, or raise your price limit."
+        )
+        return session
+
+    # Step 4: select top result
+    session["selected_item"] = session["search_results"][0]
+
+    # Step 5: suggest outfit (handles empty wardrobe internally)
+    session["outfit_suggestion"] = suggest_outfit(
+        new_item=session["selected_item"],
+        wardrobe=session["wardrobe"],
+    )
+
+    # Step 6: create fit card (handles empty outfit string internally)
+    session["fit_card"] = create_fit_card(
+        outfit=session["outfit_suggestion"],
+        new_item=session["selected_item"],
+    )
+
+    # Step 7: return completed session (error is still None)
     return session
 
 
