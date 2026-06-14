@@ -105,7 +105,7 @@ For each tool, describe the specific failure mode you're handling and what the a
 |------|-------------|----------------|
 | search_listings | No results match the query | Set `session["error"]` to `"No listings found for '[description]' in size [size] under $[max_price]. Try a broader description, a different size, or raise your price limit."` Return the session immediately — do not call `suggest_outfit` or `create_fit_card`. |
 | suggest_outfit | Wardrobe is empty | Do not exit early. Call the LLM with a general-styling prompt: `"The user has no saved wardrobe items. Suggest 1–2 outfit combinations that would pair well with this item in general, including what categories of clothing and shoe styles work best."` Return the LLM's response string as `outfit_suggestion` and continue to `create_fit_card`. |
-| create_fit_card | Outfit input is missing or incomplete | Return the string `"Could not generate a fit card: outfit description is empty."` without raising an exception. Store this string in `session["fit_card"]` so the caller always has a non-None value to display. |
+| create_fit_card | Outfit input is missing or incomplete | Return the string `"Could not generate a fit card: outfit description is missing."` without raising an exception. Store this string in `session["fit_card"]` so the caller always has a non-None value to display. |
 
 ---
 
